@@ -1,0 +1,541 @@
+---
+title: "Joseph Colton's CS 670 Project"
+output: html_notebook
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+Initialize by loading the required libraries, set the working directory
+to find the data files, then import the data files. Data Frames are
+later combined for plots and predictions.
+
+```{r}
+# Load libraries
+library(stringr)
+library(caret)
+
+setwd("C:/Users/josep/My Drive/Education/classes/cs670-winter2023/project/data")
+#setwd("C:/Users/Joseph/Google Drive/Education/classes/cs670-winter2023/project/data")
+# setwd(choose.dir())
+infantMortality <- read.csv("infantMortalityRate.csv")
+skilledBirth <- read.csv("birthAttendedBySkilledPersonal.csv")
+nursingAndMidwife <- read.csv("nursingAndMidwife.csv")
+
+alcoholAbuse <- read.csv("alcoholSubstanceAbuse.csv")
+basicSanitization <- read.csv("atLeastBasicSanitizationServices.csv")
+drinkingWater <- read.csv("basicDrinkingWaterServices.csv")
+handWashing <- read.csv("basicHandWashing.csv")
+violence <- read.csv("eliminateViolenceAgainstWomen.csv")
+safelySanitization <- read.csv("safelySanitization.csv")
+tobacco <- read.csv("tobaccoAge15.csv")
+
+# Clean data
+infantMortality$InfantMortRate <- sub(" \\[\\d*\\.*\\d*-\\d*\\.*\\d*\\]", "", infantMortality$InfantMortRate)
+
+```
+
+# **Data**
+
+My wife works at Peace Health Sacred Heard Medical Center at River Bend
+in the Mom/Baby unit and sometimes in the NICU. I am regularly hearing
+about challenges related to birth and complications. My wife and I
+sometimes talk about the idea of her going to a foreign country to do
+one of the doctors without borders types of trips. I decided that
+looking into infant mortality and possible causes might be interesting.
+
+I logged into Kaggle and used a data set from Utkarsh S, who goes by the
+username/handle of Zeus. It appears that this is one of three data sets
+that he contributed. Originally, I was under the impression that the
+data sets on Kaggle were curated by the Kaggle organization, but now, it
+appears that the data sets are more like getting code and projects from
+GitHub.
+
+The dataset I used was called the "World Health Statistics 2020". It
+seems that Zeus collected the data from the World Health Organization,
+but he does not directly state it in his data card. If I were to do this
+project all over again, I would probably gather the data from the World
+Health Organization site myself and clean it up myself.
+
+I selected 10 CSV files from the data set and downloaded them. Each CSV
+file consists of a location (ie. country), and period (ie. year), an
+indicator describing the data, and a statistic. There are sometimes
+additional pieces of information that are used to break up the data.
+Much of the data had column descriptions that were not very useful, so I
+renamed the column headings. There were a few pieces of data that could
+not be used as is, so I had to write R regular expressions to remove
+extra data.
+
+I used the following CSV files:
+
+alcoholSubstanceAbuse.csv - Location, Year, Indicator, Dim1,
+AlcoholPercent
+
+![](images/image-1082824609.png)
+
+atLeastBasicSanitizationServices.csv - Location, Indicator, Year, Dim1,
+BasicSaniPercent
+
+![](images/image-15651.png)
+
+basicDrinkingWaterServices.csv - Location, Year, Indicator,
+DrinkingWaterPercent
+
+![](images/image-236842397.png)
+
+basicHandWashing.csv - Location, Indicator, Year, Dim1,
+HomeHandWashPercent
+
+![](images/image-741741379.png)
+
+birthAttendedBySkilledPersonal.csv - Location, Year, Indicator,
+SkilledBirthPercent
+
+![](images/image-1390264289.png)
+
+eliminateViolenceAgainstWomen.csv - Location, Year, Indicator, Dim1,
+Dim2, ViolencePercent
+
+![](images/image-310854104.png)
+
+infantMortalityRate.csv - Location, Yearm Indicator, Dim1,
+InfantMortRate
+
+![](images/image-1474883630.png)
+
+nursingAndMidwife.csv - Location, Year, Indicator, NursingPersonnel
+
+![](images/image-1297277967.png)
+
+safelySanitization.csv - Location, Indicator, Year, Dim1,
+SafeSaniPercent
+
+![](images/image-1996292311.png)
+
+tobaccoAge15.csv - Location, Indicator, Year, Dim1, TobaccoPercent
+
+![](images/image-394336088.png)
+
+# Questions
+
+Through all of this research, I had a large question and some smaller
+questions that I decided to ask. My interest is in infant mortality. The
+main question is how to prevent it. But in order to do that, I decided
+to look at different suspicions to see what kind of correlation exists.
+Finally, I wanted to try using related data to see if I could predict
+infant mortality. Ideally, if the source of infant mortality is
+identified, we could then potentially make changes to make like better
+for the babies.
+
+-   How can we reduce infant mortality?
+
+-   Does the presence of nurses and midwives correlate with infant
+    mortality?
+
+-   What basic health needs correlate with infant mortality?
+
+-   Do alcohol, tobacco, and violence correlate with infant mortality?
+
+Using the data available I would like to see what patterns I can
+identify and which predictors seem to correlate with infant mortality.
+
+# Visualization
+
+## **Birth and Medical Personal**
+
+I wanted to see what role the presence of medical personal in the
+country as well as actually attending the birth played in longer term
+infant mortality.
+
+**Births Attended by Skilled Personnel**
+
+I wanted to see if having skilled personnel played a role in infant
+mortality. It appears that as the percent of skilled personnel drops,
+infant mortality rises. This indicates a definite correlation with
+infant mortality.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(skilledBirth, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$SkilledBirthPercent, main="Births Attended by Skilled Personnel", xlab="Infant Mortality per 1000 births", ylab="Attended by Skilled Personnel %", col="blue")
+lm.fit <- lm(InfantMortRate ~ SkilledBirthPercent, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+**Nursing and Midwifery personnel**
+
+I looked at how the ratio of midwifes and nurses to population played a
+role in infant mortality. It appears that if the number of midwives and
+nurses is high, the infant mortality is low. However, when the number is
+low, the infant mortality is sometimes high and sometimes low. I am now
+wondering if wealth might play a role in who gets service. It is
+possible that someone might be in a country with a lot of skilled
+personnel, but not be able to have them at the birth.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(nursingAndMidwife, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$NursingPersonnel, main="Presence of Nurses and Midwives", xlab="Infant Mortality per 1000 births", ylab="Midwives/Nursing per 10,000 people", col="blue")
+lm.fit <- lm(InfantMortRate ~ NursingPersonnel, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+## **Basic Health Needs**
+
+An area of interest for I wanted to look at was basic health needs. I
+looked at sanitation, access to clean drinking water, hand washing, and
+safely managed sanitation services. It appears that all of these are
+important and help an infant survive.
+
+**Basic Level of Sanitation**
+
+The first plot shows the correlation between basic sanitation in the
+population and infant mortality. This shows that as the basic sanitation
+rates drop, the infant mortality rate rises.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(basicSanitization, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$BasicSaniPercent, main="Basic Sanitation and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="People with Basic Sanitation %", col="blue")
+lm.fit <- lm(InfantMortRate ~ BasicSaniPercent, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+**Access to Clean Drinking Water**
+
+In addition to sanitation, access to clean drinking water appears to be
+correlated with infant mortality. As the percent of people with access
+to clean drinking water goes up, the infant mortality rate drops.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(drinkingWater, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$DrinkingWaterPercent, main="Drinking Water and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="People with Drinking Water %", col="blue")
+lm.fit <- lm(InfantMortRate ~ DrinkingWaterPercent, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+**Access to Hand Washing Facilities in the Home**
+
+Access to hand washing facilities in the home correlates with lower
+infant mortality rates. This appears to show that when you have access
+to wash hands, babies have a better chance at life.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(handWashing, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$HomeHandWashPercent, main="Home Hand Washing and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="People with Hand Washing in the Home %", col="blue")
+lm.fit <- lm(InfantMortRate ~ HomeHandWashPercent, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+**Managed Safe Sanitation Services**
+
+As people get safely managed sanitation services, the infant mortality
+rate drops. This indicates that safely managed sanitation services play
+a positive role in the health of infants.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(safelySanitization, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$SafeSaniPercent, main="Safe Sanitation Services and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="People with managed sanitation services %", col="blue")
+lm.fit <- lm(InfantMortRate ~ SafeSaniPercent, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+## **Drugs and Violence**
+
+After looking at sanitation conditions, I decided to look at drugs use
+(tobacco, alcohol) and domestic violence against women to see if there
+are correlations there that might indicate places for possible
+improvement.
+
+**Alcohol Use**
+
+I wanted to see what role alcohol use might play in infant mortality. I
+plotted the alcohol use against the infant mortality rate. It appears
+that with various levels of alcohol consumption, the infant mortality
+rate does not appear as affected. There is not a lot of information I
+can gather from this, but it seems that this is not likely a cause of
+infant mortality.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(alcoholAbuse, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$AlcoholPercent, main="Alcohol Use and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="Annual Alcohol Consumption in Litres/Capita", col="blue")
+lm.fit <- lm(InfantMortRate ~ AlcoholPercent, data=data)
+abline(lm.fit, col="green", lwd=3)
+```
+
+**Tobacco Use**
+
+The next plot shows the affects of tobacco use in the population and the
+correlation with infant mortality. While visually it does appear that
+there is a slight correlation between tobacco use and infant mortality,
+it does not appear to be a strong indicator. There are more likely
+stronger indicators at play here.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(tobacco, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$TobaccoPercent, main="Tobacco Use and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="Tobacco users %", col="blue")
+lines(y=c(0, 100), x=c(0,150), col="green", lwd=3)
+```
+
+**Domestic Violence**
+
+I decided to look and see what role domestic violence against women, by
+an intimate partner in the last 12 months, in the age range that might
+be giving birth might play on infant mortality. Interestly, it appears
+that as the rate of women who experience domestic violence from an
+intimate partner goes up, so does the infant mortality. This leads me to
+believe that it is not just women who are experiencing this domestic
+violence. It is possible that those in these circumstances do not value
+life as much, or other factors in their environment hurts the survival
+rate of infants.
+
+```{r}
+data <- merge(subset(infantMortality, select=-c(Indicator)),
+              subset(violence, select=-c(Indicator)),
+              by=c("Location", "Year"))
+
+plot(data$InfantMortRate, data$ViolencePercent, main="Violence against Women and Infant Mortality", xlab="Infant Mortality per 1000 births", ylab="Women subjected to violence %", col="blue")
+lines(y=c(0, 60), x=c(0,120), col="green", lwd=3)
+```
+
+# Models
+
+I decided to train models to predict the infant mortality using the
+different possible predictors, then compare the results to actual
+numbers in testing data. I decided to go for a 80/20 split of
+training/testing data.
+
+**Sanitation/Water Predictions**
+
+First, I decided to look at the sanitation data. One of the problems I
+ran into is that not every country reported for every year for all 4 of
+the predictors I decided to use. This means that I was limited to only
+172 rows of data. If I were to do this over, I would use interpolated
+data to fill in gaps and see what I could figure out.
+
+```{r}
+set.seed(0) # Set random number seed
+data <- merge(subset(infantMortality[infantMortality$Dim1 == 'Both sexes',], select=-c(Indicator, Dim1)),
+              subset(basicSanitization[basicSanitization$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- merge(data,
+              subset(safelySanitization[safelySanitization$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- merge(data,
+              subset(drinkingWater, select=-c(Indicator)),
+              by=c("Location", "Year"))
+data <- merge(data,
+              subset(handWashing[handWashing$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- subset(data, select=-c(Location, Year))
+
+# Create an 80-20 split of the data
+#trainIndex <- createDataPartition(data$InfantMortRate, p = 0.8, list = FALSE)
+#training <- data[trainIndex, ]
+#testing <- data[-trainIndex, ]
+training <- data[0:137,]
+testing <- data[138:172,]
+
+# Create a linear model
+lm.fit <- lm(InfantMortRate ~ ., data=training)
+# summary(lm.fit)
+
+# Make predictions on the testing data
+predictions <- predict(lm.fit, newdata = testing)
+
+# Compare predictions to actual values in testing
+results <- data.frame(Actual = testing$InfantMortRate, Predicted = predictions)
+
+# Create a scatter plot of predicted vs. actual values
+ggplot(results, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  labs(x = "Actual Infant Mortality Rate", y = "Predicted Infant Mortality Rate") +
+  ggtitle("Predicted vs. Actual Infant Mortality Rate")
+
+```
+
+**Skilled Professionals Predictions**
+
+I decided to use the skilled professionals being present at the birth to
+help predict the infant mortality rate. There were a few outliers along
+the left side, that seemed interesting, but overall, it seemed like the
+skilled professionals being there was a good predictor for infant
+mortality.
+
+```{r}
+set.seed(0) # Set random number seed
+data <- merge(subset(infantMortality[infantMortality$Dim1 == 'Both sexes',], select=-c(Indicator, Dim1)),
+              subset(skilledBirth, select=-c(Indicator)),
+              by=c("Location", "Year"))
+data <- subset(data, select=-c(Location, Year))
+
+# Create an 80-20 split of the data
+#trainIndex <- createDataPartition(data$InfantMortRate, p = 0.8, list = FALSE)
+#training <- data[trainIndex, ]
+#testing <- data[-trainIndex, ]
+training <- data[0:1200,]
+testing <- data[1201:1596,]
+
+# Create a linear model
+lm.fit <- lm(InfantMortRate ~ ., data=training)
+# summary(lm.fit)
+
+# Make predictions on the testing data
+predictions <- predict(lm.fit, newdata = testing)
+
+# Compare predictions to actual values in testing
+results <- data.frame(Actual = testing$InfantMortRate, Predicted = predictions)
+
+# Create a scatter plot of predicted vs. actual values
+ggplot(results, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 10, slope = 0.1, color = "red") +
+  labs(x = "Actual Infant Mortality Rate", y = "Predicted Infant Mortality Rate") +
+  ggtitle("Predicted vs. Actual Infant Mortality Rate")
+
+```
+
+**Violence against Women**
+
+While the rate at which women experience violence from an intimate
+partner does not seem like it should correlate with the infant mortality
+rate, viewing the data earlier appeared to show a correlation, so I
+decided to try using it to predict the infant mortality rate. I had a
+lot of missing data, but the data that I did have seemed to do a good
+job of predicting the infant mortality rate. It would be interesting to
+see if we could look into causation to see why these two might
+correlate.
+
+```{r}
+set.seed(0) # Set random number seed
+data <- merge(subset(infantMortality[infantMortality$Dim1 == 'Both sexes',], select=-c(Indicator, Dim1)),
+              subset(violence[violence$Dim2 == '25-29 years',], select=-c(Indicator)),
+              by=c("Location", "Year"))
+data <- subset(data, select=-c(Location, Year, Dim1, Dim2))
+
+# Create an 80-20 split of the data
+#trainIndex <- createDataPartition(data$InfantMortRate, p = 0.8, list = FALSE)
+#training <- data[trainIndex, ]
+#testing <- data[-trainIndex, ]
+training <- data[0:35,]
+testing <- data[36:44,]
+
+# Create a linear model
+lm.fit <- lm(InfantMortRate ~ ., data=training)
+# summary(lm.fit)
+
+# Make predictions on the testing data
+predictions <- predict(lm.fit, newdata = testing)
+
+# Compare predictions to actual values in testing
+results <- data.frame(Actual = testing$InfantMortRate, Predicted = predictions)
+
+# Create a scatter plot of predicted vs. actual values
+ggplot(results, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 30, slope = 1.8, color = "red") +
+  labs(x = "Actual Infant Mortality Rate", y = "Predicted Infant Mortality Rate") +
+  ggtitle("Predicted vs. Actual Infant Mortality Rate")
+```
+
+# Results, Analysis, and Discussion
+
+Looking at all of the data and visuals, I see that infant mortality is a
+complex issue. Clearly, there are signs that sanitation and clean water
+is related to infant mortality. If I had unlimited money, I would love
+to perform an experiment where I built sanitation services and clean
+water facilities in countries without easy access to these services. I
+would like to then make sure that people had access to sanitation
+services and clean water, then see how the infant mortality rate was
+affected. Either way, an improvement in sanitation services and clean
+water would be a positive change for some people.
+
+The rate at which skilled professionals are present at the birth is
+correlated with infant mortality and can be used to fairly accurately
+predict rates, however, causation is hard to establish. It would be nice
+if the data was more complete and individual cases of infant mortality
+could be looked at more closely to see if there were direct correlations
+to skilled professionals. What I have to work with are two aggregate
+numbers that correlate, but are not directly tied together. It seems
+like having skilled professionals at the birth is definitely a positive
+thing and should be encouraged.
+
+I really thought that alcohol and tobacco use would be good predictors
+of infant mortality, but it seems that is not the case. While I imagine
+these are tied to overall life expectancy and death from other causes,
+it does not appear that they significantly lead to infant mortality. The
+violence against women numbers showed me something I was not fully
+expecting. I thought it was possible that women who experienced violence
+from an intimate partner might also have children that experienced that
+same violence or they might cause it themselves, but I did not expect it
+to have such a close correlation. The violence numbers worked as a good
+predictor for infant mortality, which is a sad thing.
+
+My analysis a fairly limited in that I use linear regression instead of
+more fitted approaches. It is possible that the numbers could have been
+better predictors if I had used different models. Another limitation was
+the source of and quality of data that I was using. I would have liked
+to have modified the data to fix some of the missing numbers by using
+estimates.
+
+If I were to do this all over, I would have collected and used more
+data. I would have liked to see things like education levels and other
+quality of life indicators such as income/GDP. I would have also liked
+to look at things like food security, political unrest, and birth/birch
+control policies.
+
+# Impact
+
+The data seems to tell a certain story. I used the location and year
+fields to merge data, but this data could be used to tell other
+political stories. We have to be careful what conclusions are drawn from
+the data and analysis.
+
+I identified the following places where I would make recommendations in
+order to improve infant mortality rates in a given country:
+
+1.  Governments and businesses should invest in improving sanitation and
+    clean water infrastructure. Improving these makes life better and
+    reduced the infant mortality rates.
+
+2.  Governments should encourage more people to become nurses/midwives.
+    They could create training programs and offer scholarships and
+    grants for people in under-served areas who are interested in
+    learning how to become skilled professionals. Then, they should make
+    sure access to skilled professionals is available during pregnancy.
+
+3.  Governments should look at law and social practices that might lead
+    to domestic violence. Ideally, governments and society should frown
+    on domestic violence of any sort and discourage it.
+
+While all of these basically focus on government playing a role, it
+might need to be done by communities or religions.
+
+While I think my models are fairly accurate, it is possible that they
+are not accurate. Either way, all of the suggestions I suggested are
+considered positive things in general, so none of the suggestions really
+has a negative consequence, with possibly the suggestion about domestic
+violence. If I was wrong, I do not expect the infant mortality rates to
+raise, most likely, they would be unaffected.
