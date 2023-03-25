@@ -14,6 +14,7 @@ later combined for plots and predictions.
 # Load libraries
 library(stringr)
 library(caret)
+library(rsq)
 
 setwd("C:/Users/josep/My Drive/Education/classes/cs670-winter2023/project/data")
 #setwd("C:/Users/Joseph/Google Drive/Education/classes/cs670-winter2023/project/data")
@@ -376,6 +377,59 @@ ggplot(results, aes(x = Actual, y = Predicted)) +
 
 ```
 
+I decided to see how accurate the predictions were using R-squared.
+
+```{r}
+rsq_lmfit <- rsq(lm.fit)
+cat("R-squared for lm.fit:", rsq_lmfit, "\n")
+summary(lm.fit)
+```
+
+I seems like the Drinking Water Percent is not as tightly correlated.
+Also, Hand Washing Percent does not seem to correlate as well. I decided
+to remove them to see if I could get a more accurate model.
+
+```{r}
+set.seed(0) # Set random number seed
+data <- merge(subset(infantMortality[infantMortality$Dim1 == 'Both sexes',], select=-c(Indicator, Dim1)),
+              subset(basicSanitization[basicSanitization$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- merge(data,
+              subset(safelySanitization[safelySanitization$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- subset(data, select=-c(Location, Year))
+
+# Create an 80-20 split of the data
+#trainIndex <- createDataPartition(data$InfantMortRate, p = 0.8, list = FALSE)
+#training <- data[trainIndex, ]
+#testing <- data[-trainIndex, ]
+training <- data[0:1132,]
+testing <- data[1133:1415,]
+
+# Create a linear model
+lm.fit <- lm(InfantMortRate ~ ., data=training)
+summary(lm.fit)
+
+# Make predictions on the testing data
+predictions <- predict(lm.fit, newdata = testing)
+
+# Compare predictions to actual values in testing
+results <- data.frame(Actual = testing$InfantMortRate, Predicted = predictions)
+
+# Create a scatter plot of predicted vs. actual values
+ggplot(results, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  labs(x = "Actual Infant Mortality Rate", y = "Predicted Infant Mortality Rate") +
+  ggtitle("Predicted vs. Actual Infant Mortality Rate")
+```
+
+It really feels like there is something off about the model. The
+predictions do not seem to like up with expected values. It seems like
+there are a few countries with numbers that are very off, so I suspect
+more is going on. Additionally, predictors that seemed to be tightly
+correlated seem less so now. This might be because we have a lot more
+values to use in comparisons.
+
 **Skilled Professionals Predictions**
 
 I decided to use the skilled professionals being present at the birth to
@@ -458,6 +512,53 @@ ggplot(results, aes(x = Actual, y = Predicted)) +
   geom_abline(intercept = 30, slope = 1.8, color = "red") +
   labs(x = "Actual Infant Mortality Rate", y = "Predicted Infant Mortality Rate") +
   ggtitle("Predicted vs. Actual Infant Mortality Rate")
+```
+
+**Combined Predictors**
+
+I decided to combine Skilled Professionals at the birth with the two
+Sanitation predictors to see if I could get something that better
+predicted the Infant Mortality Rate. I put a red line at the slope of 1
+so that I could see if predictions or actual are higher. It appears that
+actual numbers are higher. This might indicate some of the predictors
+have a higher contribution than others.
+
+```{r}
+set.seed(0) # Set random number seed
+data <- merge(subset(infantMortality[infantMortality$Dim1 == 'Both sexes',], select=-c(Indicator, Dim1)),
+              subset(basicSanitization[basicSanitization$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- merge(data,
+              subset(safelySanitization[safelySanitization$Dim1 == 'Total',], select=-c(Indicator, Dim1)),
+              by=c("Location", "Year"))
+data <- merge(data,
+              subset(skilledBirth, select=-c(Indicator)),
+              by=c("Location", "Year"))
+data <- subset(data, select=-c(Location, Year))
+
+# Create an 80-20 split of the data
+#trainIndex <- createDataPartition(data$InfantMortRate, p = 0.8, list = FALSE)
+#training <- data[trainIndex, ]
+#testing <- data[-trainIndex, ]
+training <- data[0:684,]
+testing <- data[685:856,]
+
+# Create a linear model
+lm.fit <- lm(InfantMortRate ~ ., data=training)
+summary(lm.fit)
+
+# Make predictions on the testing data
+predictions <- predict(lm.fit, newdata = testing)
+
+# Compare predictions to actual values in testing
+results <- data.frame(Actual = testing$InfantMortRate, Predicted = predictions)
+
+# Create a scatter plot of predicted vs. actual values
+ggplot(results, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  labs(x = "Actual Infant Mortality Rate", y = "Predicted Infant Mortality Rate") +
+  ggtitle("Combined Predicted vs. Actual Infant Mortality Rate")
 ```
 
 # Results, Analysis, and Discussion
